@@ -186,6 +186,18 @@ Powered by [Gladia](https://gladia.io) v2 API:
 
 ---
 
+## Claude Code / AI Development
+
+This repo includes a Claude Code skill for working on the codebase:
+
+```bash
+cp -r .claude/skills/meeting-recorder-dev ~/.claude/skills/
+```
+
+Then in any Claude Code session, use `/meeting-recorder-dev` to load architecture rules, deploy instructions, and common pitfalls before making changes.
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE)
