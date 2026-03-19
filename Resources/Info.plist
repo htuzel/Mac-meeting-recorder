@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.flalingo.meeting-recorder</string>
+    <key>CFBundleName</key>
+    <string>MeetingRecorder</string>
+    <key>CFBundleDisplayName</key>
+    <string>Meeting Recorder</string>
+    <key>CFBundleExecutable</key>
+    <string>MeetingRecorder</string>
+    <key>CFBundleIconFile</key>
+    <string>icon</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Meeting Recorder needs microphone access to capture your voice during meetings.</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Meeting Recorder needs screen capture permission to record system audio from meetings.</string>
+</dict>
+</plist>

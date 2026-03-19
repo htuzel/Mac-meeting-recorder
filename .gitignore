@@ -1,0 +1,21 @@
+# Swift / SPM
+.build/
+.swiftpm/
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+Package.resolved
+
+# macOS
+.DS_Store
+*.dSYM
+
+# App bundle (built artifact)
+MeetingRecorder.app/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
