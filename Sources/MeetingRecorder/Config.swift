@@ -2,6 +2,8 @@ import Foundation
 
 struct Config: Sendable {
     let gladiaApiKey: String
+    let summaryEndpoint: String
+    let summaryModel: String
     let recordingsDir: URL
     let transcriptionLanguage: String   // ISO 639-1, e.g. "tr", "en", "de"
     let vadMicThreshold: Double
@@ -26,6 +28,8 @@ struct Config: Sendable {
 
         return Config(
             gladiaApiKey: gladiaKey,
+            summaryEndpoint: env["SUMMARY_ENDPOINT"] ?? "http://127.0.0.1:8000",
+            summaryModel: env["SUMMARY_MODEL"] ?? "qwen3.5-122b-a10b-4bit",
             recordingsDir: recordingsDir,
             transcriptionLanguage: env["TRANSCRIPTION_LANGUAGE"] ?? "tr",
             vadMicThreshold: Double(env["VAD_MIC_THRESHOLD"] ?? "") ?? 0.01,

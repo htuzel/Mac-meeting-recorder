@@ -9,6 +9,7 @@ final class MenuBarController: NSObject {
     private let detector: MeetingDetector
     private let mixer = AudioMixer()
     private let gladiaClient: GladiaClient
+    private let summaryClient: SummaryClient
     private let log = Logger.shared
 
     private let statusItem: NSStatusItem
@@ -34,6 +35,7 @@ final class MenuBarController: NSObject {
         self.audioCapture = AudioCapture(config: config)
         self.detector = MeetingDetector(config: config)
         self.gladiaClient = GladiaClient(apiKey: config.gladiaApiKey, language: config.transcriptionLanguage)
+        self.summaryClient = SummaryClient(endpoint: config.summaryEndpoint, model: config.summaryModel)
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         super.init()
@@ -223,7 +225,9 @@ final class MenuBarController: NSObject {
         // Transcribe
         let success = await gladiaClient.transcribeSession(sessionDir: sessionDir)
         if success {
-            sendNotification(title: "Meeting Recorder", body: "Transcription complete!")
+            let summarized = await summaryClient.summarizeSession(sessionDir: sessionDir)
+            let msg = summarized ? "Transcription & summary complete!" : "Transcription complete (summary skipped)."
+            sendNotification(title: "Meeting Recorder", body: msg)
         } else {
             sessionManager.addPendingUpload(sessionDir: sessionDir)
             sendNotification(title: "Meeting Recorder", body: "Transcription failed. Will retry later.")
@@ -239,7 +243,9 @@ final class MenuBarController: NSObject {
             for session in orphaned {
                 log.info("Retrying orphaned session: \(session.lastPathComponent)")
                 let success = await gladiaClient.transcribeSession(sessionDir: session)
-                if !success {
+                if success {
+                    _ = await summaryClient.summarizeSession(sessionDir: session)
+                } else {
                     sessionManager.addPendingUpload(sessionDir: session)
                 }
             }
@@ -249,7 +255,9 @@ final class MenuBarController: NSObject {
             for session in pending {
                 log.info("Retrying pending upload: \(session.lastPathComponent)")
                 let success = await gladiaClient.transcribeSession(sessionDir: session)
-                if !success {
+                if success {
+                    _ = await summaryClient.summarizeSession(sessionDir: session)
+                } else {
                     sessionManager.addPendingUpload(sessionDir: session)
                 }
             }
