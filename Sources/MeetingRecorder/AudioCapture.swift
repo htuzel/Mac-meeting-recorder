@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import CoreAudio
 import Foundation
 import ScreenCaptureKit
 
@@ -13,7 +14,16 @@ final class AudioCapture: NSObject, @unchecked Sendable {
     // RMS values protected by os_unfair_lock
     private var _micRMS: Double = 0.0
     private var _sysRMS: Double = 0.0
+    // Peak buffer RMS since the last consumePeaks() call (one VAD tick).
+    // Sampling only the latest ~10ms buffer every 0.5s missed most speech.
+    private var _micPeak: Double = 0.0
+    private var _sysPeak: Double = 0.0
     private var rmsLock = os_unfair_lock()
+
+    // Prevents overlapping restarts (wake + device change + stream error)
+    private var restartInProgress = false
+    private var restartLock = os_unfair_lock()
+    private var deviceChangeGeneration = 0
 
     // RMS accumulators for metadata
     private var micRMSSum: Double = 0.0
@@ -42,6 +52,16 @@ final class AudioCapture: NSObject, @unchecked Sendable {
         return _sysRMS
     }
 
+    /// Returns the peak RMS of each side since the previous call and resets it.
+    func consumePeaks() -> (mic: Double, sys: Double) {
+        os_unfair_lock_lock(&rmsLock)
+        defer { os_unfair_lock_unlock(&rmsLock) }
+        let peaks = (mic: _micPeak, sys: _sysPeak)
+        _micPeak = 0
+        _sysPeak = 0
+        return peaks
+    }
+
     var micRMSAvg: Double {
         os_unfair_lock_lock(&rmsLock)
         defer { os_unfair_lock_unlock(&rmsLock) }
@@ -65,6 +85,52 @@ final class AudioCapture: NSObject, @unchecked Sendable {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+
+        installDefaultInputListener()
+    }
+
+    // MARK: - Input device changes
+
+    /// When the default microphone changes (AirPods/headset connect or
+    /// disconnect), the running SCStream can keep listening to the old device
+    /// and go deaf. Restart the stream shortly after the change settles.
+    private func installDefaultInputListener() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            DispatchQueue.main
+        ) { [weak self] _, _ in
+            self?.handleDefaultInputChange()
+        }
+        if status != noErr {
+            log.warn("Could not watch default input device changes (status \(status))")
+        }
+    }
+
+    private func handleDefaultInputChange() {
+        os_unfair_lock_lock(&restartLock)
+        deviceChangeGeneration += 1
+        let generation = deviceChangeGeneration
+        os_unfair_lock_unlock(&restartLock)
+
+        log.info("Default input device changed — restarting stream in 2s")
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            // Coalesce bursts of change notifications into one restart
+            guard self.currentDeviceGeneration() == generation else { return }
+            await self.restart()
+        }
+    }
+
+    private func currentDeviceGeneration() -> Int {
+        os_unfair_lock_lock(&restartLock)
+        defer { os_unfair_lock_unlock(&restartLock) }
+        return deviceChangeGeneration
     }
 
     // MARK: - Monitoring (RMS only, no recording)
@@ -126,12 +192,12 @@ final class AudioCapture: NSObject, @unchecked Sendable {
                 let sysURL = sessionDir.appendingPathComponent("system.wav")
                 micWriter = try AVAudioFile(forWriting: micURL, settings: micFormat.settings)
                 sysWriter = try AVAudioFile(forWriting: sysURL, settings: sysFormat.settings)
-                isRecording = true
 
-                // Reset RMS accumulators
+                // Reset RMS accumulators and flip the recording flag together
                 os_unfair_lock_lock(&rmsLock)
                 micRMSSum = 0; sysRMSSum = 0
                 micRMSCount = 0; sysRMSCount = 0
+                isRecording = true
                 os_unfair_lock_unlock(&rmsLock)
 
                 log.info("Recording started → \(sessionDir.path)")
@@ -143,7 +209,9 @@ final class AudioCapture: NSObject, @unchecked Sendable {
 
     func stopRecording() {
         writerQueue.sync {
+            os_unfair_lock_lock(&rmsLock)
             isRecording = false
+            os_unfair_lock_unlock(&rmsLock)
             micWriter = nil
             sysWriter = nil
             log.info("Recording stopped")
@@ -153,6 +221,12 @@ final class AudioCapture: NSObject, @unchecked Sendable {
     // MARK: - Restart
 
     func restart() async {
+        guard beginRestart() else {
+            log.debug("Restart already in progress — skipping")
+            return
+        }
+        defer { endRestart() }
+
         log.warn("Restarting audio capture stream")
         await stopMonitoring()
         try? await Task.sleep(for: .seconds(1))
@@ -161,6 +235,20 @@ final class AudioCapture: NSObject, @unchecked Sendable {
         } catch {
             log.error("Failed to restart monitoring: \(error.localizedDescription)")
         }
+    }
+
+    private func beginRestart() -> Bool {
+        os_unfair_lock_lock(&restartLock)
+        defer { os_unfair_lock_unlock(&restartLock) }
+        if restartInProgress { return false }
+        restartInProgress = true
+        return true
+    }
+
+    private func endRestart() {
+        os_unfair_lock_lock(&restartLock)
+        restartInProgress = false
+        os_unfair_lock_unlock(&restartLock)
     }
 
     @objc private func handleWake() {
@@ -230,6 +318,7 @@ extension AudioCapture: SCStreamOutput {
             let rms = calculateRMS(from: sampleBuffer)
             os_unfair_lock_lock(&rmsLock)
             _micRMS = rms
+            _micPeak = max(_micPeak, rms)
             micRMSSum += rms
             micRMSCount += 1
             let recording = isRecording
@@ -243,6 +332,7 @@ extension AudioCapture: SCStreamOutput {
             let rms = calculateRMS(from: sampleBuffer)
             os_unfair_lock_lock(&rmsLock)
             _sysRMS = rms
+            _sysPeak = max(_sysPeak, rms)
             sysRMSSum += rms
             sysRMSCount += 1
             let recording = isRecording

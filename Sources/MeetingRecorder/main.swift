@@ -13,8 +13,20 @@ guard lockFD >= 0 else {
 }
 
 if flock(lockFD, LOCK_EX | LOCK_NB) != 0 {
-    print("Another instance is already running. Exiting.")
-    exit(0)
+    // Under launchd (KeepAlive) exiting here would make launchd respawn us in
+    // a loop, and in the old setup an exit(0) here left nothing running once
+    // the other (manually opened) instance quit. So the launchd-managed copy
+    // waits for the lock and takes over; a manually opened copy just exits.
+    if ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] == "com.flalingo.meeting-recorder" {
+        print("Another instance is running — waiting to take over when it exits.")
+        guard flock(lockFD, LOCK_EX) == 0 else {
+            print("ERROR: Cannot acquire lock")
+            exit(1)
+        }
+    } else {
+        print("Another instance is already running. Exiting.")
+        exit(0)
+    }
 }
 
 // MARK: - App Setup

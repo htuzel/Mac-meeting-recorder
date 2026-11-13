@@ -10,11 +10,12 @@
     </array>
     <key>RunAtLoad</key>
     <true/>
+    <!-- Always relaunch: menu "Quit" and clean exits used to leave the
+         recorder off for weeks (only RunAtLoad brought it back at login). -->
     <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-    </dict>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
     <key>StandardOutPath</key>
     <string>__LOGS_DIR__/launchd_stdout.log</string>
     <key>StandardErrorPath</key>

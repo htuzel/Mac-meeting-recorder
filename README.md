@@ -22,7 +22,7 @@ Mic + System Audio active for 5s → Recording starts automatically
   transcript.txt + transcript.json saved
 ```
 
-**Voice Activity Detection (VAD):** Recording only starts when *both* your microphone and system audio are active simultaneously — this avoids false positives from music, YouTube, or one-sided calls.
+**Voice Activity Detection (VAD):** Recording only starts when *both* your microphone and system audio have been active (≥1.5s each within a 30s window, turn-taking is fine) — this avoids false positives from music, YouTube, notification sounds, or one-sided calls. A session only ends after both sides are silent for 4+ minutes, so pauses don't split one meeting into many files.
 
 ---
 
@@ -89,7 +89,7 @@ The app lives in your menu bar:
 | `REC` | Recording in progress |
 | `...` | Cooldown — processing will start soon |
 
-**Manual control:** Click the menu bar icon → Start/Stop Recording
+**Manual control:** Click the menu bar icon → Start/Stop Recording, or *Pause Auto-Recording for 1 Hour* for private calls. The LaunchAgent always relaunches the app, so *Restart Recorder* (⌘Q) restarts rather than stops it; to stop it for good run `launchctl bootout gui/$(id -u)/com.flalingo.meeting-recorder`.
 
 **Recordings location:** `~/MeetingRecordings/YYYY-MM-DD/meeting_HHMMSS/`
 
@@ -113,9 +113,14 @@ Key settings:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GLADIA_API_KEY` | — | Required |
-| `VAD_ACTIVATION_SECONDS` | `5` | Seconds of dual-activity before recording starts |
-| `VAD_SILENCE_TIMEOUT` | `45` | Seconds of silence before stopping |
-| `VAD_COOLDOWN_SECONDS` | `15` | Cooldown before returning to idle |
+| `VAD_ACTIVATION_SECONDS` | `1.5` | Seconds of activity required on *each* side within the window |
+| `VAD_ACTIVATION_WINDOW` | `30` | Sliding window for the start condition |
+| `VAD_SILENCE_TIMEOUT` | `240` | Seconds of silence on both sides before cooldown |
+| `VAD_COOLDOWN_SECONDS` | `30` | Extra silence before the session is closed |
+| `MIN_TRANSCRIBE_SECONDS` | `20` | Shorter clips are never uploaded |
+| `MIN_ACTIVE_SECONDS` | `15` | Auto sessions with less speech are not transcribed |
+| `TRANSCRIBE_MAX_ATTEMPTS` | `5` | Retries (with backoff) before giving up on a session |
+| `SUMMARY_ENABLED` | `false` | Per-session summary via an OpenAI-compatible endpoint |
 | `RECORDINGS_DIR` | `~/MeetingRecordings` | Where to save recordings |
 
 ---
