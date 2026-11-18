@@ -1,6 +1,20 @@
 import AppKit
 import Foundation
 
+// MARK: - One-off transcription (no recording, no menu bar, no lock)
+//   MeetingRecorder --transcribe <session folder containing mixed.m4a>
+
+if let flag = CommandLine.arguments.firstIndex(of: "--transcribe"),
+   flag + 1 < CommandLine.arguments.count {
+    let sessionDir = URL(fileURLWithPath: CommandLine.arguments[flag + 1])
+    let transcriber = makeTranscriber(config: Config.load())
+    Task.detached {
+        let ok = await transcriber.transcribeSession(sessionDir: sessionDir)
+        exit(ok ? 0 : 1)
+    }
+    dispatchMain()
+}
+
 // MARK: - Single Instance Lock
 
 let lockFilePath = FileManager.default.homeDirectoryForCurrentUser

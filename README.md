@@ -17,7 +17,7 @@ Mic + System Audio active for 5s → Recording starts automatically
              ↓
         Mixed to M4A
              ↓
-    Transcribed via Gladia API
+    Transcribed via ElevenLabs Scribe
              ↓
   transcript.txt + transcript.json saved
 ```
@@ -30,7 +30,7 @@ Mic + System Audio active for 5s → Recording starts automatically
 
 - **macOS 15 (Sequoia) or later** — required for `SCStream.captureMicrophone`
 - **Xcode Command Line Tools** — `xcode-select --install`
-- **Gladia API key** — free tier available at [app.gladia.io](https://app.gladia.io)
+- **ElevenLabs API key** (Scribe speech-to-text). A Gladia key still works when no ElevenLabs key is set.
 
 ---
 
@@ -50,7 +50,7 @@ mkdir -p ~/.config/meeting-recorder
 cp .env.example ~/.config/meeting-recorder/.env
 ```
 
-Edit `~/.config/meeting-recorder/.env` and add your Gladia API key:
+Edit `~/.config/meeting-recorder/.env` and add your ElevenLabs API key (`ELEVENLABS_API_KEY`):
 
 ```
 GLADIA_API_KEY=your_key_here
@@ -98,7 +98,7 @@ Each session contains:
 meeting_HHMMSS/
 ├── mixed.m4a        ← Audio (mic + system, mixed)
 ├── transcript.txt   ← [HH:MM:SS] Speaker N: text
-├── transcript.json  ← Full Gladia API response
+├── transcript.json  ← Utterances (result.transcription.utterances) + raw ElevenLabs response
 └── metadata.json    ← Duration, timestamps, RMS averages
 ```
 
@@ -147,7 +147,7 @@ Key settings:
            │ on stop
     ┌──────▼──────────────┐
     │   AudioMixer         │ mic.wav + system.wav → mixed.m4a
-    │   GladiaClient       │ Upload → Transcribe → Poll → Save
+    │   ElevenLabsClient   │ One request → Save (GladiaClient if no ElevenLabs key)
     └──────────────────────┘
 ```
 
@@ -183,11 +183,11 @@ If you want to change the bundle identifier (e.g. `com.yourname.meeting-recorder
 
 ## Transcription
 
-Powered by [Gladia](https://gladia.io) v2 API:
-- Language: Turkish (`tr`) — change `language_config` in `GladiaClient.swift` for other languages
-- Enhanced diarization: enabled (speaker separation)
-- Speaker labels: `Speaker 0`, `Speaker 1`, etc.
-- Free tier: 10 hours/month
+Powered by [ElevenLabs Scribe](https://elevenlabs.io/docs/capabilities/speech-to-text) (`scribe_v3`, one synchronous request):
+- Language: `TRANSCRIPTION_LANGUAGE` (default `tr`); other languages spoken in the meeting stay in their own language
+- Diarization: enabled (speaker separation); speaker labels `Speaker 0`, `Speaker 1`, … in order of first appearance
+- Without `ELEVENLABS_API_KEY` the old Gladia v2 client is used (Gladia's contract ended on 24 Nov 2026)
+- Re-transcribe one session by hand: `~/Applications/MeetingRecorder.app/Contents/MacOS/MeetingRecorder --transcribe <session folder>`
 
 ---
 

@@ -44,13 +44,14 @@ final class MenuBarController: NSObject {
 
         super.init()
 
-        let gladia = GladiaClient(apiKey: config.gladiaApiKey, language: config.transcriptionLanguage)
+        let transcriber = makeTranscriber(config: config)
+        log.info("Transcription via \(config.elevenLabsApiKey.isEmpty ? "Gladia" : "ElevenLabs \(config.elevenLabsModel)")")
         let summary = config.summaryEnabled
             ? SummaryClient(endpoint: config.summaryEndpoint, model: config.summaryModel)
             : nil
         log.info("Summaries \(config.summaryEnabled ? "enabled" : "disabled") (SUMMARY_ENABLED)")
         self.transcriptionQueue = TranscriptionQueue(
-            config: config, gladia: gladia, summary: summary,
+            config: config, transcriber: transcriber, summary: summary,
             notify: { [weak self] message in
                 Task { @MainActor in self?.sendNotification(title: "Meeting Recorder", body: message) }
             }

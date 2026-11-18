@@ -37,7 +37,7 @@ actor TranscriptionQueue {
     static let statusFileName = "transcription_status.json"
 
     private let config: Config
-    private let gladia: GladiaClient
+    private let transcriber: any Transcriber
     private let summary: SummaryClient?
     private let notify: @Sendable (String) -> Void
     private let log = Logger.shared
@@ -46,9 +46,9 @@ actor TranscriptionQueue {
     private var queuedPaths: Set<String> = []
     private var isProcessing = false
 
-    init(config: Config, gladia: GladiaClient, summary: SummaryClient?, notify: @escaping @Sendable (String) -> Void) {
+    init(config: Config, transcriber: any Transcriber, summary: SummaryClient?, notify: @escaping @Sendable (String) -> Void) {
         self.config = config
-        self.gladia = gladia
+        self.transcriber = transcriber
         self.summary = summary
         self.notify = notify
     }
@@ -167,7 +167,7 @@ actor TranscriptionQueue {
         save(&status, session, state: .inProgress, note: nil)
         log.info("Transcribing \(name) (attempt \(status.attempts)/\(config.transcribeMaxAttempts))")
 
-        let ok = await gladia.transcribeSession(sessionDir: session)
+        let ok = await transcriber.transcribeSession(sessionDir: session)
         if ok {
             save(&status, session, state: .done, note: nil)
             notify("Transcript ready: \(name)")

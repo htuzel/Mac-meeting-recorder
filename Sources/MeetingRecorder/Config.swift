@@ -2,6 +2,8 @@ import Foundation
 
 struct Config: Sendable {
     let gladiaApiKey: String
+    let elevenLabsApiKey: String
+    let elevenLabsModel: String
     let summaryEnabled: Bool
     let summaryEndpoint: String
     let summaryModel: String
@@ -36,8 +38,9 @@ struct Config: Sendable {
         let env = Self.parseEnvFile()
 
         let gladiaKey = env["GLADIA_API_KEY"] ?? ""
-        if gladiaKey.isEmpty {
-            print("WARNING: GLADIA_API_KEY not found in .env")
+        let elevenLabsKey = env["ELEVENLABS_API_KEY"] ?? ""
+        if gladiaKey.isEmpty && elevenLabsKey.isEmpty {
+            print("WARNING: neither ELEVENLABS_API_KEY nor GLADIA_API_KEY found in .env")
         }
 
         let recordingsDirPath = (env["RECORDINGS_DIR"] ?? "~/MeetingRecordings")
@@ -54,6 +57,8 @@ struct Config: Sendable {
 
         return Config(
             gladiaApiKey: gladiaKey,
+            elevenLabsApiKey: elevenLabsKey,
+            elevenLabsModel: env["ELEVENLABS_STT_MODEL"] ?? "scribe_v3",
             summaryEnabled: bool("SUMMARY_ENABLED", false),
             summaryEndpoint: env["SUMMARY_ENDPOINT"] ?? "http://127.0.0.1:8000",
             summaryModel: env["SUMMARY_MODEL"] ?? "qwen3.5-122b-a10b-4bit",
